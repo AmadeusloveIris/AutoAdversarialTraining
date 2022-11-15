@@ -20,6 +20,7 @@ optimizer = torch.optim.SGD(model.parameters(), 0.1, momentum=0.9, weight_decay=
 priority_weight = torch.Tensor(1/(sampler.buffer_size*sampler.p)).to(device)
 epsilon = 4.0
 pgd_step = 4.0
+count = 0
 for i, (idx, (x, pert, y)) in enumerate(dl,start=1):
     x_prime = x + pert
     x_prime.requires_grad_()
@@ -33,3 +34,11 @@ for i, (idx, (x, pert, y)) in enumerate(dl,start=1):
     pert = pert.clamp_(-epsilon, epsilon).cpu()
     ds.buffer_update(idx, pert, loss_update)
     if i%20==0: torch.save(model.state_dict(),'./save/model.pt')
+
+    ## Log: accuracy & loss for every 100 iterations
+    count += 1
+    if count%100 ==0:
+        print("Loss at {sum_iteration}th iteration is {loss_value}".format(sum_iteration=count, loss_value = loss_update))
+        predicted_label = torch.max(pred, 1)
+        accuracy = torch.sum(predicted_label==y)/predicted_label.shape[0]
+        print("Accuracy at {sum_iteration}th iteration is {accuracy_value}".format(sum_iteration=count, accuracy_value = accuracy))
