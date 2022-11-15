@@ -4,18 +4,22 @@ from model import WideResNet
 from autoattack import AutoAttack
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
+import torchvision.transforms as transforms
 
 class ImageDataset(Dataset):
     def __init__(self, file):
         super().__init__()
         data, label = pickle.load(open(file,'rb'))
-        data = torch.Tensor(data).permute(0,3,1,2)
-        self.data = self.transform(data)
+        self.data = self.transform(torch.Tensor(data).permute(0,3,1,2))
         self.label = label
 
     def transform(self, data):
-        data = data/255
-        return data
+        transform_func = transforms.Compose([
+                transforms.RandomCrop(size = (3,3), padding = 2),
+                transforms.RandomHorizontalFlip(0.5)]
+            )
+        augmented_data = transform_func(data)
+        return augmented_data
 
     def __getitem__(self, idx):
         return self.data[idx], self.label[idx]

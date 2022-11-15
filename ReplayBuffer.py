@@ -3,6 +3,7 @@ import torch
 import pickle
 from autoattack import AutoAttack
 from torch.utils.data import Dataset
+import torchvision.transforms as transforms
 
 class ReplayBuffer(Dataset):
     def __init__(self, file):
@@ -20,8 +21,12 @@ class ReplayBuffer(Dataset):
         self.buffer_size = len(label)
     
     def transform(self, data):
-        data = data/255
-        return data
+        transform_func = transforms.Compose([
+                transforms.RandomCrop(size = (3,3), padding = 2),
+                transforms.RandomHorizontalFlip(0.5)]
+            )
+        augmented_data = transform_func(data)
+        return augmented_data
     
     def buffer_update(self, idx, pert, loss):
         self.pert[idx] = pert
