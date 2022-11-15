@@ -25,7 +25,7 @@ for i, (idx, (x, pert, y)) in enumerate(dl,start=1):
     x_prime.requires_grad_()
     optimizer.zero_grad()
     pred = model(x_prime)
-    loss = criterion(pred, y)*priority_weight
+    loss = criterion(pred, y)*priority_weight[idx]
     loss_update = loss.detach().cpu()
     loss.mean().backward()
     optimizer.step()
