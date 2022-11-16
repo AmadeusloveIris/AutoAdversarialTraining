@@ -1,5 +1,6 @@
 import torch
 import pickle
+import torch.nn as nn
 from model import WideResNet
 from autoattack import AutoAttack
 from torch.utils.data import Dataset
@@ -31,11 +32,12 @@ class ImageDataset(Dataset):
         return len(self.label)
 
 device = 1
-batch_size = 512
+batch_size = 2048
 #model = WideResNet(32,10).to(device)
 model = models.__dict__['resnet50']().to(device)
 ds = ImageDataset('./data/cifar_train.pt')
 dl = DataLoader(ds,batch_size=batch_size,shuffle=True,pin_memory=True)
+criterion = nn.CrossEntropyLoss()
 
 model.eval()
 while True:
@@ -43,13 +45,11 @@ while True:
         while True:
             try:
                 model.load_state_dict(torch.load('./save/model.pt'))
-                print('loaded')
                 break
             except: continue
-        adversary = AutoAttack(model, norm='Linf', eps=2, attacks_to_run=['apgd-ce','apgd-t'], version='custom', device=device)
         x = x.to(device)
         y = y.to(device)
-        x_prime, label = adversary.run_standard_evaluation(x,y,bs=batch_size,return_labels=True)
-        x, x_prime, label = x.cpu(), x_prime.cpu(), label.cpu()
-        pert = x_prime - x
-        torch.save((x, pert, label),'./save/cache.pt')
+        with torch.no_grad(): 
+            pred = model(x)
+            loss = criterion(pred, y)
+        print(((pred.argmax(-1)==y).sum()/len(y)).item(), loss.item())

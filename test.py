@@ -1,10 +1,11 @@
 import torch
+from torch import nn
 import pickle
 from model import WideResNet
 from autoattack import AutoAttack
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
-from torchvision import transforms, models
+from torchvision import datasets, transforms, models
 
 class ImageDataset(Dataset):
     def __init__(self, file):
@@ -30,26 +31,33 @@ class ImageDataset(Dataset):
     def __len__(self):
         return len(self.label)
 
-device = 1
-batch_size = 512
+device = 2
+batch_size = 1024
 #model = WideResNet(32,10).to(device)
-model = models.__dict__['resnet50']().to(device)
 ds = ImageDataset('./data/cifar_train.pt')
+
+model = models.__dict__['resnet50']().to(device)
+model.load_state_dict(torch.load('./save/model.pt'))
+transform_func = transforms.Compose([transforms.ToTensor(),
+                                     transforms.RandomCrop(size = 32, padding = 2),
+                                     transforms.RandomHorizontalFlip(),
+                                     transforms.Normalize(mean=(0.4914, 0.4822, 0.4465),
+                                                          std=(0.247, 0.243, 0.261))])
+
+#ds = datasets.CIFAR10('data',train=True,transform=transform_func)
 dl = DataLoader(ds,batch_size=batch_size,shuffle=True,pin_memory=True)
+criterion = nn.CrossEntropyLoss()
+optimizer = torch.optim.Adam(model.parameters(), 0.001)
 
 model.eval()
 while True:
-    for x,y in dl:
-        while True:
-            try:
-                model.load_state_dict(torch.load('./save/model.pt'))
-                print('loaded')
-                break
-            except: continue
-        adversary = AutoAttack(model, norm='Linf', eps=2, attacks_to_run=['apgd-ce','apgd-t'], version='custom', device=device)
+    for i, (x,y) in enumerate(dl,start=1):
         x = x.to(device)
         y = y.to(device)
-        x_prime, label = adversary.run_standard_evaluation(x,y,bs=batch_size,return_labels=True)
-        x, x_prime, label = x.cpu(), x_prime.cpu(), label.cpu()
-        pert = x_prime - x
-        torch.save((x, pert, label),'./save/cache.pt')
+        optimizer.zero_grad()
+        pred = model(x)
+        loss = criterion(pred, y)
+        loss.backward()
+        optimizer.step()
+        print(i, ((pred.argmax(-1)==y).sum()/len(y)).item(), loss.item())
+        if i%10==0: torch.save(model.state_dict(),'./save/model.pt')
