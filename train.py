@@ -48,3 +48,11 @@ while True:
             print(f'steps: {i}  accuracy: {right_num/(update_freq*batch_size)}  loss: {loss_total/(update_freq*batch_size)}')
             loss_total = 0
             right_num = 0
+
+    ## Log: accuracy & loss for every 100 iterations
+    count += 1
+    if count%100 ==0:
+        print("Loss at {sum_iteration}th iteration is {loss_value}".format(sum_iteration=count, loss_value = loss_update))
+        predicted_label = torch.max(pred, 1)
+        accuracy = torch.sum(predicted_label==y)/predicted_label.shape[0]
+        print("Accuracy at {sum_iteration}th iteration is {accuracy_value}".format(sum_iteration=count, accuracy_value = accuracy))
