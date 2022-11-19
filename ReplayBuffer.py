@@ -12,23 +12,17 @@ class ReplayBuffer(Dataset):
     def init_buffer(self, file):
         self.cache_time = 0
         data, label = pickle.load(open(file,'rb'))
-        data = self.transform(data)
-        self.x = data
-        self.pert = torch.zeros(data.shape)
+        self.x = torch.Tensor(data).permute(0,3,1,2).contiguous().div(255)
+        self.pert = torch.zeros(self.x.shape)
         self.label = torch.LongTensor(label)
         self.loss = torch.ones(len(label))*float('inf')
         self.buffer_size = len(label)
-    
-    def transform(self, data):
-        data = torch.Tensor(data).permute(0,3,1,2).contiguous().div(255)
-        transform_func = transforms.Compose([
-                transforms.RandomCrop(size = data.shape[-1], padding = 2),
+        self.transform = transforms.Compose([
+                transforms.RandomCrop(size = 32, padding = 2),
                 transforms.RandomHorizontalFlip(),
                 transforms.Normalize(mean=(0.4914, 0.4822, 0.4465),
                                      std=(0.247, 0.243, 0.261))]
             )
-        augmented_data = transform_func(data)
-        return augmented_data
     
     def buffer_update(self, idx, pert, loss):
         self.pert[idx] = pert
@@ -37,10 +31,10 @@ class ReplayBuffer(Dataset):
             self.cache_time = os.path.getmtime('./save/cache.pt')
             try:
                 x, pert, label = torch.load('./save/cache.pt')
-                self.x = torch.concat([x, x, self.x])
-                self.pert = torch.concat([torch.zeros(pert.shape), pert, self.pert])
-                self.label = torch.concat([label,label,self.label])
-                self.loss = torch.concat([torch.ones(2*len(label))*float('inf'),self.loss])
+                self.x = torch.concat([x, self.x])
+                self.pert = torch.concat([pert, self.pert])
+                self.label = torch.concat([label,self.label])
+                self.loss = torch.concat([torch.ones(len(label))*float('inf'),self.loss])
             except:
                 pass
 
@@ -51,7 +45,7 @@ class ReplayBuffer(Dataset):
         self.loss = self.loss[idx][:self.buffer_size]
         
     def __getitem__(self, idx):
-        return idx, self.x[idx], self.pert[idx] ,self.label[idx]
+        return idx, self.transform(self.x[idx]), self.pert[idx] ,self.label[idx]
     
     def __len__(self):
         return self.buffer_size
