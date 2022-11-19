@@ -23,7 +23,8 @@ class ImageDataset(Dataset):
             )
 
     def __getitem__(self, idx):
-        return self.transform(self.data[idx]), self.label[idx]
+        # return self.transform(self.data[idx]), self.label[idx]
+        return self.data[idx], self.label[idx]
 
     def __len__(self):
         return len(self.label)

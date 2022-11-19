@@ -45,7 +45,8 @@ class ReplayBuffer(Dataset):
         self.loss = self.loss[idx][:self.buffer_size]
         
     def __getitem__(self, idx):
-        return idx, self.transform(self.x[idx]), self.pert[idx] ,self.label[idx]
+        # return idx, self.transform(self.x[idx]), self.pert[idx] ,self.label[idx]
+        return idx, self.x[idx], self.pert[idx] ,self.label[idx]
     
     def __len__(self):
         return self.buffer_size

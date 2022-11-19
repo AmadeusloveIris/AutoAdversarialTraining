@@ -7,6 +7,7 @@ from ReplayBuffer import ReplayBuffer
 from torch.utils.data import DataLoader
 from model import WideResNet
 from torchvision import datasets, transforms, models
+from Dataloader import ImageDataset
 
 device = 2
 batch_size = 2048
@@ -24,12 +25,33 @@ priority_weight = torch.Tensor(1/(sampler.buffer_size*sampler.p)).to(device)
 update_freq = 100
 loss_total = 0
 right_num = 0
-epsilon = 2.0
+epsilon = 8.0
 pgd_step = 0.5
+count = 0
+
+original_data = ImageDataset('./data/cifar_train.pt')
+original_data_dl = DataLoader(original_data)
+
+
 while True:
+    for i, (x, y) in enumerate(original_data_dl,start=1):
+        x.requires_grad_()
+        optimizer.zero_grad()
+        pred = model(x)
+        loss = criterion(pred, y)
+        loss_update = loss.detach().cpu()
+        loss.mean().backward()
+        if i%5==0: 
+            torch.save(model.state_dict(),'./save/model.pt')
+            print(f'steps: {i}  accuracy: {(pred.detach().argmax(-1)==y).sum().item()/batch_size}  loss: {loss_update.mean().item()}')
+        if i%update_freq==0:
+            print(f'steps: {i}  accuracy: {right_num/(update_freq*batch_size)}  loss: {loss_total/(update_freq*batch_size)}')
+            loss_total = 0
+            right_num = 0
+
     for i, (idx, (x, pert, y)) in enumerate(dl,start=1):
-        x_prime = x
-        #x_prime = x + pert
+        # x_prime = x
+        x_prime = x + pert
         x_prime.requires_grad_()
         optimizer.zero_grad()
         pred = model(x_prime)
@@ -37,6 +59,7 @@ while True:
         loss_update = loss.detach().cpu()
         loss.mean().backward()
         optimizer.step()
+
         #pert = x_prime.grad.detach().sign()*pgd_step + pert.detach()
         #pert = pert.clamp_(-epsilon, epsilon).cpu()
         #ds.buffer_update(idx, pert, loss_update)
@@ -49,10 +72,10 @@ while True:
             loss_total = 0
             right_num = 0
 
-    ## Log: accuracy & loss for every 100 iterations
-    count += 1
-    if count%100 ==0:
-        print("Loss at {sum_iteration}th iteration is {loss_value}".format(sum_iteration=count, loss_value = loss_update))
-        predicted_label = torch.max(pred, 1)
-        accuracy = torch.sum(predicted_label==y)/predicted_label.shape[0]
-        print("Accuracy at {sum_iteration}th iteration is {accuracy_value}".format(sum_iteration=count, accuracy_value = accuracy))
+        ## Log: accuracy & loss for every 100 iterations
+        count += 1
+        if count%100 ==0:
+            print("Loss at {sum_iteration}th iteration is {loss_value}".format(sum_iteration=count, loss_value = loss_update))
+            predicted_label = torch.max(pred, 1)
+            accuracy = torch.sum(predicted_label==y)/predicted_label.shape[0]
+            print("Accuracy at {sum_iteration}th iteration is {accuracy_value}".format(sum_iteration=count, accuracy_value = accuracy))

@@ -20,7 +20,8 @@ class ImageDataset(Dataset):
             )
 
     def __getitem__(self, idx):
-        return self.transform(self.data[idx]), self.label[idx]
+        # return self.transform(self.data[idx]), self.label[idx]
+        return self.data[idx], self.label[idx]
 
     def __len__(self):
         return len(self.label)
@@ -39,7 +40,7 @@ while True:
                 model.load_state_dict(torch.load('./save/model.pt'))
                 break
             except: continue
-        adversary = AutoAttack(model, norm='Linf', eps=0.031, attacks_to_run=['apgd-ce','apgd-t'], version='custom', device=device)
+        adversary = AutoAttack(model, norm='Linf', eps=8, attacks_to_run=['apgd-ce','apgd-t'], version='custom', device=device)
         x = x.to(device)
         y = y.to(device)
         x_prime, label = adversary.run_standard_evaluation(x,y,bs=batch_size,return_labels=True)
