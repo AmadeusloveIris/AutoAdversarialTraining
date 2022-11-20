@@ -1,13 +1,14 @@
 import torch
 import pickle
-from model import WideResNet
 from autoattack import AutoAttack
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
-from torchvision import transforms, models
+from torchvision import transforms
 from torch.autograd import Variable
 import torch.optim as optim
 import torch.nn as nn
+
+from models.wideresnet import WideResNet
 
 class ImageDataset(Dataset):
     def __init__(self, file):
@@ -16,29 +17,29 @@ class ImageDataset(Dataset):
         self.data = torch.Tensor(data).permute(0,3,1,2).contiguous().div(255)
         self.label = label
         self.transform = transforms.Compose([
-                transforms.RandomCrop(size = self.data.shape[-1], padding = 2),
-                transforms.RandomHorizontalFlip(),
-                transforms.Normalize(mean=(0.4914, 0.4822, 0.4465),
-                                     std=(0.247, 0.243, 0.261))]
+                transforms.RandomCrop(size = 32, padding = 2),
+                transforms.RandomHorizontalFlip(),]
             )
 
     def __getitem__(self, idx):
-        return self.transform(self.data[idx]), self.label[idx]
+        #return self.transform(self.data[idx]), self.label[idx]
+        return self.data[idx], self.label[idx]
 
     def __len__(self):
         return len(self.label)
 
-device = 3
-batch_size = 512
-model = models.__dict__['resnet50']().to(device)
+device = 2
+batch_size = 128
+#model = models.__dict__['resnet50']().to(device)
+model = WideResNet().to(device)
 model.load_state_dict(torch.load('./save/model_test.pt'))
-ds = ImageDataset('./data/cifar_train.pt')
+ds = ImageDataset('./data/cifar_test.pt')
 dl = DataLoader(ds,batch_size=batch_size,pin_memory=True)
 
-def _pgd_whitebox(model,
+def pgd_whitebox(model,
                   X,
                   y,
-                  epsilon=0.031,
+                  epsilon=8/255,
                   num_steps=20,
                   step_size=0.007):
     out = model(X)
@@ -69,6 +70,7 @@ for x,y in dl:
     x = x.to(device)
     y = y.to(device)
     with torch.no_grad(): pred = model(x)
-    natural_right_accu += (pred.argmax(-1)==y).float().sum()
-    pgd_right_accu += batch_size-_pgd_whitebox(model, x, y)
+    natural_right_accu += (pred.argmax(-1)==y).sum()
+    pgd_right_accu += batch_size-pgd_whitebox(model, x, y, num_steps=100)
 print(f'Natural accuracy: {natural_right_accu/len(ds)}, Robust accuracy: {pgd_right_accu/len(ds)}')
+#print(f'Natural accuracy: {natural_right_accu/len(ds)}')
